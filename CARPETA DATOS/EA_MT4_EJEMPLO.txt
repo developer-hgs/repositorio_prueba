@@ -1,0 +1,774 @@
+
+//+------------------------------------------------------------------+
+//|                                            Axiom Template EA.mq4 |
+//|                                     Copyright 2020, Build Alpha  |
+//|                                                    version 2.15  |
+//+------------------------------------------------------------------+
+#property strict
+#property version "2.15"
+
+#include <stdlib.mqh>
+#include <CStrategy_v2-15.mqh>
+
+#import "AxiomFutures_MetaTrader4.dll"
+   int AF20_GetFile(int, string text);
+   double AF20_GetData(string text, string text, int);
+#import
+
+
+extern int glb_slippage              = 10;
+extern int max_open_same_dir         = 1;
+//extern double lot_size             = 0.01;
+extern int shared_magic_number       = 1;
+extern int ea_magic_number           = 1;
+extern int ModeAggregate             = 2; // ModeAggregate, 0:LONG, 1:SHORT, 2:ALL
+extern int NumberOfPositionsToEnter  = 0;
+extern int NumberOfPositionsToExit   = 0;
+extern int NumberOfBarsOfWeek        = 6;
+
+//NewPositionSizing
+double lot_size = 1.0;
+
+bool CStrategy::CalculateEntry_Long()
+{
+   bool b = ok_to_trade, b2 = false;
+   ReleaseSeries();
+   switch (this.ordinal)
+   {
+      case 0:
+         b2 = false; for (int i=0; i<=0; i++) b2 |= ((TimeToStr(Time[1],TIME_DATE) > "2024.10.10")); b &= b2;
+         b2 = false; for (int i=0; i<=0; i++) b2 |= (_Time_1(0) >= 40000 and _Time_1(0) <= 200000); b &= b2;
+         b2 = false; for (int i=0; i<=0; i++) b2 |= (_low_1[4+i] > _open_1[5+i]); b &= b2;
+         b2 = false; for (int i=0; i<=0; i++) b2 |= (_high_1[6+i] <= _close_1[9+i]); b &= b2;
+         b2 = false; for (int i=0; i<=0; i++) b2 |= (_Vix_1()[0+i] > 15); b &= b2;
+         return b;
+
+      /*__CONDITIONS_FOR_LONG_ENTRY__*/
+      /*
+      example:
+      case 0:
+         b =     (_close crosses_above _KeltnerChannel(_close,20,1.5))
+             and (true)
+             and (true)
+             and (true)
+             and (_barPath() == 2);
+         return b;
+      */
+   }
+
+   return false;
+}
+
+bool CStrategy::CalculateExit_Long()
+{
+   bool b = true, b2 = false;
+   ReleaseSeries();
+   switch (this.ordinal)
+   {
+      case 0:
+         b =     (false) ;
+         return b;
+
+      /*__CONDITIONS_FOR_LONG_EXIT__*/
+      /*
+      example:
+      case 0:
+         b =     (_close crosses_above _KeltnerChannel(_close,20,1.5))
+             and (true)
+             and (true)
+             and (true)
+             and (_barPath() == 2);
+         return b;
+      */
+   }
+
+   return false;
+}
+
+bool CStrategy::CalculateEntry_Short()
+{
+   bool b = ok_to_trade, b2 = false;
+   ReleaseSeries();
+   switch (this.ordinal)
+   {
+      case 0:
+         b =     (false) ;
+         return b;
+
+      /*__CONDITIONS_FOR_SHORT_ENTRY__*/
+      /*
+      example:
+        case 0:
+           b = (_close crosses_above _KeltnerChannel(_close,20,1.5))
+               and (true) 
+               and (true) 
+               and (true)
+               and (_barPath() == 2);
+         return b;
+      */
+   }
+
+   return false;
+}
+
+bool CStrategy::CalculateExit_Short()
+{
+   bool b = true, b2 = false;
+   ReleaseSeries();
+   switch (this.ordinal)
+   {
+      case 0:
+         b =     (false) ;
+         return b;
+
+      /*__CONDITIONS_FOR_SHORT_EXIT__*/
+      /*
+      example:
+      case 0:
+         b =     (_close crosses_above _KeltnerChannel(_close,20,1.5))
+             and (true)
+             and (true)
+             and (true)
+             and (_barPath() == 2);
+         return b;
+      */
+   }
+
+   return false;
+}
+
+CStrategy *strategies[];
+string init_strings[] =
+{
+   // P S H L pt    sl    max_t  prof   L position_sizing fixed     risk ATR    strt end  sess max  min   trds
+   // T L H L mul   mul          close  g method(1,2,3)   amount($) (%)  period time time strt pnl  pnl   day
+   "(TimeToStr(Time[1],TIME_DATE)>\"2024.10.10\") Time400-2000 L4>O5 H6<C9 VixAbove15 LONG_ENTRY_END LONG_EXIT_END SHORT_ENTRY_END SHORT_EXIT_END 930.546 99.840 54 0.852 26.081 33.647 22.798 40.027 4.457 0.775 2.943 0.000 1 1 0 0 0 4.000 2.000 0.000 105 1 1 0 0 5 10000 0.01 50 0 0 1 1 0000 2359 1700 9999999 -9999999 999999",
+   /*__INIT_STRINGS__*/
+   /*
+   example:
+   "RSIabove50 Nop Nop Nop BarPath2 1 1 1 1 1 1 1 1 1 1 1 1 0 0 7 3 1.00 1.00 50 50 1 EURUSD 60 EURUSD 30 0000 2400 0800 0.1 -0.1 3 6 0.5",
+   */
+};
+
+void InitializeStrategies()
+{
+   Print("Axiom: Initialize Strategies");
+
+   ArrayResize(strategies, ArraySize(init_strings));
+
+   for (int i = 0; i < ArraySize(init_strings); i++)
+      strategies[i] = new CStrategy(glb_slippage, max_open_same_dir, init_strings[i], shared_magic_number, ea_magic_number, NumberOfBarsOfWeek);
+
+   Print("Strategies inited, count: ", ArraySize(init_strings));
+}
+
+int OnInit()
+{
+   return (INIT_SUCCEEDED);
+}
+
+void OnDeinit(const int reason)
+{
+   Print("Axiom: DeInit");
+
+   for (int i = 0; i < ArraySize(strategies); i++)
+   {
+      if (strategies[i] != NULL)
+         delete (strategies[i]);
+   }
+
+   b_strategies_inited = false;
+   CStrategy::strategies_count = 0;
+}
+
+datetime time_LastBar            = 0;
+bool     bSetChartParams         = false;
+bool     b_strategies_inited     = false;
+int      ttl_deferred_commands   = 1;
+int     g_nLastBarEntry         = -1;
+
+void OnTick()
+{
+   //Print("   ");
+   //Print("Tick Start...", TimeToStr(TimeCurrent(), TIME_MINUTES | TIME_SECONDS));
+   //Print("Tick start Ask:", Ask);
+   //Print("Tick start Bid:", Bid);
+
+   if (!bSetChartParams)
+   {
+      ChartSetInteger(0, CHART_SHIFT, true);
+      ChartSetInteger(0, CHART_SCALE, 5);
+      ChartSetInteger(0, CHART_SHOW_GRID, false);
+      bSetChartParams = true;
+      return;
+   }
+
+   if (!b_strategies_inited)
+   {
+      InitializeStrategies();
+      b_strategies_inited = true;
+   }
+
+   //            -----------------------------------------
+   //              C H E C K       f o r   N E W   B A R
+   //            ------------------------------------------
+
+   bool b_IsNewBar = false;
+
+   if (time_LastBar == 0)
+      time_LastBar = Time[0];
+
+   if (Time[0] != time_LastBar)
+   {
+      time_LastBar = Time[0];
+      b_IsNewBar = true;
+      //Print("NewBar");
+   }
+   else
+   {
+      //Print("CurrentBar");
+   }
+
+   /***********************************************************************\
+   *                                                                      *
+   *        M A I N   L O G I C   B L O C K                               *
+   *                                                                      *
+   \***********************************************************************/
+
+   /*** FOR EACH STRATEGY ***/
+   for (int i = 0; i < ArraySize(strategies); i++)
+   {
+      CStrategy *strategy = strategies[i];
+
+      if (b_IsNewBar)
+      {
+         strategy.CheckRotationMetrics();
+      }
+
+      if (b_IsNewBar)
+      {
+         /*****   N E W   B A R  J U S T     H A P P E N E D *******/
+
+         /****** FIRST OF ALL, EXECUTE PENDING "BY MARKET" EXITS     ******/
+         /****** to allow for new entries to happen                  ******/
+         /****** otherwise they'll be blocked by "max_open_same_dir  ******/
+
+         for (int cmd_no = 0; cmd_no < strategy.command_count; cmd_no++ )
+         {
+            CCommand* command = strategy.command_buffer[cmd_no];
+            if ( ( (command.type & COMMAND_TYPE_MARKET) != 0 ) &&
+                 ( ( command.type & OT_EXIT ) > 0 ) &&
+                 ( ( command.when & _NEXT_BAR_OPEN ) > 0 ) )
+            {
+               //Print("close next");
+               strategy.ExecuteCommand ( cmd_no );
+            }
+         }
+
+         /****** NEXT DO THE ENTRY    ******/
+         for (int cmd_no = 0; cmd_no < strategy.command_count; cmd_no++)
+         {
+            CCommand *command = strategy.command_buffer[cmd_no];
+
+            if (command.sent || command.expired)
+               continue;             // double check, and if fails -- bail out
+
+            /**** EXECUTE ALL PENDING "BY MARKET" ENTRIES ****/
+            if (((command.type & COMMAND_TYPE_MARKET) != 0) && ((command.type & OT_ENTRY) > 0) && ((command.when & _NEXT_BAR_OPEN) > 0))
+            {
+               //Print("open next");
+               strategy.ExecuteCommand(cmd_no);
+            }
+         }
+      }
+
+
+      /*** NOW EVERYTHING EXCEPT FOR PENDING LIMIT/STOPS SHOULD BE PURGED FROM THE COMMAND QUEUE    ***/
+      int current = 0;
+      for (int cmd_no = 0; cmd_no < strategy.command_count; cmd_no++)
+      {
+         CCommand *command = strategy.command_buffer[cmd_no];
+         if ((((command.type & COMMAND_TYPE_STOP) > 0) || ((command.type & COMMAND_TYPE_LIMIT) > 0)) && (command.expired != true))
+            strategy.command_cache[current++] = strategy.command_buffer[cmd_no];
+         else
+            delete strategy.command_buffer[cmd_no];
+      }
+
+      for (int cmd_no = 0; cmd_no < current; cmd_no++)
+         strategy.command_buffer[cmd_no] = strategy.command_cache[cmd_no];
+
+      strategy.command_count = current;
+
+
+      /*** GENERATE A NEW COMMAND SET, APPROPRIATE (UP-TO-DATE) FOR THE CURRENT TICK    ***/
+      //            --------------------------------
+      //              C H E C K       S I G N A L S
+      //            --------------------------------
+
+      //            -------------
+      //              E N T R Y
+      //            -------------
+      if (b_IsNewBar)
+      {
+         if (strategy.EntryFilters())
+         {
+            bool bConditionEntry_Long = strategy.CalculateEntry_Long();
+            bool bConditionEntry_Short = strategy.CalculateEntry_Short();
+   
+            if ( (strategy.long_ON == 0 || strategy.long_ON == 2) && bConditionEntry_Short )
+            {
+               //Print("Entry");
+               //NewPositionSizing
+               lot_size = CalculatePositionSize(strategy.position_sizing_method,strategy.fixed_amount,strategy.risk,strategy.atr_period,strategy.margin);
+               //Print("Lot_Size: ",lot_size);
+               strategy._enqueue_Entry_command(OP_SELL, lot_size, _IMMEDIATE, 0, COMMAND_TYPE_MARKET, "Entry");
+            }
+            else if ( (strategy.long_ON == 1 || strategy.long_ON == 2) && bConditionEntry_Long )
+            {
+               //Print("Entry");
+               //NewPositionSizing
+               lot_size = CalculatePositionSize(strategy.position_sizing_method,strategy.fixed_amount,strategy.risk,strategy.atr_period,strategy.margin);
+               //Print("Lot_Size: ",lot_size);
+               strategy._enqueue_Entry_command(OP_BUY, lot_size, _IMMEDIATE, 0, COMMAND_TYPE_MARKET, "Entry");
+            }
+         }
+         
+         for (int cmd_no = 0; cmd_no < strategy.command_count; cmd_no++ )
+         {
+            CCommand* command = strategy.command_buffer[cmd_no];
+            if ( ( (command.type & COMMAND_TYPE_MARKET) != 0 ) &&
+                 ( ( command.type & OT_ENTRY ) > 0 ) &&
+                 ( ( command.when & _IMMEDIATE ) > 0 ) )
+            {
+               strategy.ExecuteCommand ( cmd_no );
+            }
+         }
+      }
+
+      //            -------------
+      //              E X I T S
+      //            -------------
+
+      if (b_IsNewBar)
+      {
+         if ((strategy._BarSinceEntry() > 0))
+         {
+            //Print("Already Have Entry...", TimeToStr(TimeCurrent(), TIME_MINUTES | TIME_SECONDS));
+            //Print(Open[1], ":", Close[1]);
+            if (strategy.entry_operation == OP_BUY)
+            {
+               if (Close[1] >= strategy._EntryPrice())
+               {
+                  strategy.prof_x++;
+                  //Print(strategy.prof_x);
+               }
+            }
+            else if (strategy.entry_operation == OP_SELL)
+            {
+               if (Close[1] <= strategy._EntryPrice())
+               {
+                  strategy.prof_x++;
+                  //Print(strategy.prof_x);
+               }
+            }
+         }
+      }
+      
+      if ( strategy.TL_ON == 1 )
+      {
+         if (b_IsNewBar && strategy._BarSinceEntry() > 0)
+         {
+            strategy.ModifyTL();
+         }
+      }
+      else if ( strategy.TL_ON == 2 )
+      {
+         strategy.ModifyTL();
+      }
+      
+
+      if ( b_IsNewBar )
+      {
+         bool bConditionExit_Long = strategy.CalculateExit_Long();
+         bool bConditionExit_Short = strategy.CalculateExit_Short();
+   
+         if ((strategy.long_ON == 0 || strategy.long_ON == 2) && strategy.entry_operation == OP_SELL && bConditionExit_Short)
+         {
+            strategy._add_Exit_command(_ALL_CONTRACTS, _IMMEDIATE, 0, COMMAND_TYPE_MARKET, "ExitCondition");
+         }
+         else if ((strategy.long_ON == 1 || strategy.long_ON == 2) && strategy.entry_operation == OP_BUY && bConditionExit_Long)
+         {
+            strategy._add_Exit_command(_ALL_CONTRACTS, _IMMEDIATE, 0, COMMAND_TYPE_MARKET, "ExitCondition");
+         }
+      }
+
+      if (strategy.prof_x >= strategy.profitable_closes)
+      {
+         //strategy._add_Exit_command ( _ALL_CONTRACTS, _NEXT_BAR_OPEN, 0, COMMAND_TYPE_MARKET, "ProfX");
+         //Print("Exit PF...", TimeToStr(TimeCurrent(), TIME_MINUTES | TIME_SECONDS));
+         strategy._add_Exit_command(_ALL_CONTRACTS, _IMMEDIATE, 0, COMMAND_TYPE_MARKET, "ProfX");
+      }
+      if (strategy._BarSinceEntry() >= strategy.max_time)
+      {
+         strategy._add_Exit_command(_ALL_CONTRACTS, _IMMEDIATE, 0, COMMAND_TYPE_MARKET, "TimeX [" + (string)strategy.max_time + "]");
+      }
+      if (strategy.HH_ON && (strategy._BarSinceEntry() >= 0))
+      {
+         if (strategy.entry_operation == OP_BUY)
+            strategy._add_Exit_command(_ALL_CONTRACTS, _IMMEDIATE, _highest(MODE_HIGH, strategy.HH_ON), COMMAND_TYPE_LIMIT, "HHx");
+         else // short strategy -- invert the modulus of HH
+            strategy._add_Exit_command(_ALL_CONTRACTS, _IMMEDIATE, _highest(MODE_HIGH, strategy.HH_ON), COMMAND_TYPE_STOP, "HHx");
+      }
+      if (strategy.LL_ON && (strategy._BarSinceEntry() >= 0))
+      {
+         if (strategy.entry_operation == OP_BUY)
+            strategy._add_Exit_command(_ALL_CONTRACTS, _IMMEDIATE, _lowest(MODE_LOW, strategy.LL_ON), COMMAND_TYPE_STOP, "LLx");
+         else // short strategy -- invert the modulus of LL, too
+            strategy._add_Exit_command(_ALL_CONTRACTS, _IMMEDIATE, _lowest(MODE_LOW, strategy.LL_ON), COMMAND_TYPE_LIMIT, "LLx");
+      }
+      
+      bool bCloseImmediate = false;
+      {
+         for (int cmd_no = 0; cmd_no < strategy.command_count; cmd_no++ )
+         {
+            CCommand* command = strategy.command_buffer[cmd_no];
+            if ( ( (command.type & COMMAND_TYPE_MARKET) != 0 ) &&
+                 ( ( command.type & OT_EXIT ) > 0 ) &&
+                 ( ( command.when & _IMMEDIATE ) > 0 ) )
+            {
+               //Print("Close immediate");
+               strategy.ExecuteCommand ( cmd_no );
+               bCloseImmediate = true;
+            }
+         }
+      }
+      
+      int nConditionEntry = -1;
+      if (b_IsNewBar)
+      {
+         bool bConditionEntry_Long = strategy.CalculateEntry_Long();
+         bool bConditionEntry_Short = strategy.CalculateEntry_Short();
+
+         if ( (strategy.long_ON == 1 || strategy.long_ON == 2) && bConditionEntry_Long )
+         {
+            nConditionEntry = OP_BUY;
+         }
+         else if ( (strategy.long_ON == 0 || strategy.long_ON == 2) && bConditionEntry_Short )
+         {
+            nConditionEntry = OP_SELL;
+         }
+      }
+
+      if (strategy.EntryFilters() && nConditionEntry != -1 && bCloseImmediate)
+      {
+         //Print("Re-entry");
+         //NewPositionSizing
+         lot_size = CalculatePositionSize(strategy.position_sizing_method,strategy.fixed_amount,strategy.risk,strategy.atr_period,strategy.margin);
+         //Print("Lot_Size: ",lot_size);
+         strategy._enqueue_Entry_command(nConditionEntry, lot_size, _IMMEDIATE, 0, COMMAND_TYPE_MARKET, "Re-entry");
+
+         {
+            for (int cmd_no = 0; cmd_no < strategy.command_count; cmd_no++ )
+            {
+               CCommand* command = strategy.command_buffer[cmd_no];
+               if ( ( (command.type & COMMAND_TYPE_MARKET) != 0 ) &&
+                    ( ( command.type & OT_ENTRY ) > 0 ) &&
+                    ( ( command.when & _IMMEDIATE ) > 0 ) )
+               {
+                  //Print("Open immediate");
+                  strategy.ExecuteCommand ( cmd_no );
+               }
+            }
+         }
+      }
+
+      //g_nLastBarEntry = nConditionEntry;
+
+
+      /***                                                                      ***/
+      /***                  O N   E V E R Y  T I C K                            ***/
+      /***        REGARDLESS OF WHETHER IT'S A NEW BAR OR NOT                   ***/
+
+      /*** CHECK IF PENDING LIMIT / STOP COMMANDS HIT THEIR TARGET PRICE LEVEL  ***/
+      /*** AND SHOULD BE EXECUTED                                               ***/
+      /*** OR HAVE TO BE EXPIRED                                                ***/
+      /*** BECAUSE THEIR LIFETIME IS OVER
+      /*** adjustable as global ttl_deferred_commands (currently set to 1 bar)  ***/
+      for (int cmd_no = 0; cmd_no < strategy.command_count; cmd_no++)
+      {
+         CCommand *command = strategy.command_buffer[cmd_no];
+
+         // -- FILTERS
+         if (command.sent || command.expired) // double check for garbage
+            continue;
+
+         if ((command.type & COMMAND_TYPE_MARKET) != 0) // market command -- bail out
+            continue;
+
+         if ((command.bar_of_birth == Bars) && ((command.type & OT_ENTRY) != 0)) // command has been generated in this very bar and is expired
+            continue;                                                            // a fresh set of commands will be generated
+         // -- bail out
+         /****  CHECK TIME TO LIVE  ****/
+         if (Bars - command.bar_of_birth > ttl_deferred_commands)
+         {
+            if ((command.type & OT_EXIT) == 0)
+            {
+               command.Expire();
+               continue;
+            }
+         }
+
+         int cmd_op = 0;
+
+         if ((command.type & OT_ENTRY) > 0)
+            cmd_op = strategy.entry_operation;
+         else
+            cmd_op = strategy.exit_operation;
+
+         //  Check prices respective to the order type
+         // and execute command by sending actual MT4 order
+         if (cmd_op == OP_BUY)
+         {
+            int ticket = 0;
+            double price = 0;
+            if ((command.type & COMMAND_TYPE_LIMIT) > 0)
+            {
+               if (strategy.LL_ON)
+               {
+                  price = _lowest(MODE_LOW, strategy.LL_ON);
+               }
+               else
+               {
+                  price = command.price;
+               }
+
+               if (Ask <= price)
+               {
+                  //Print(price + " : " + Ask  + " ================ Ask ");
+                  ticket = strategy.ExecuteCommand(cmd_no);
+               }
+            }
+
+            if ((command.type & COMMAND_TYPE_STOP) > 0)
+            {
+               if (strategy.HH_ON)
+               {
+                  price = _highest(MODE_HIGH, strategy.HH_ON);
+               }
+               else
+               {
+                  price = command.price;
+               }
+
+               if (Ask >= price)
+               {
+                  //Print(price + " : " + Ask  + " ================ Ask ");
+                  ticket = strategy.ExecuteCommand(cmd_no);
+               }
+            }
+         }
+
+         if (cmd_op == OP_SELL)
+         {
+            int ticket = 0;
+            double price = 0;
+            if ((command.type & COMMAND_TYPE_LIMIT) > 0)
+            {
+
+               if (strategy.HH_ON)
+               {
+                  price = _highest(MODE_HIGH, strategy.HH_ON);
+               }
+               else
+               {
+                  price = command.price;
+               }
+
+               if ( Bid >= price )
+               {
+                  //Print(price + " : " + Bid  + " ================ Bid ");
+                  ticket = strategy.ExecuteCommand(cmd_no);
+               }
+            }
+
+            if ((command.type & COMMAND_TYPE_STOP) > 0)
+            {
+               if (strategy.LL_ON)
+               {
+                  price = _lowest(MODE_LOW, strategy.LL_ON);
+               }
+               else
+               {
+                  price = command.price;
+               }
+
+               if (Bid <= price)
+               {
+                  //Print(price + " : " + Bid + " ================ Bid ");
+                  ticket = strategy.ExecuteCommand(cmd_no);
+               }
+            }
+         }
+      }
+
+      /*****   SAME BAR, NEW TICK                                           *******/
+      /***     forget all the commands we generated on the previous tick        ***/
+      /***     allow to live pending limit/stop commands from previous bars     ***/
+      {
+         for (int cmd_no = 0; cmd_no < strategy.command_count; cmd_no++)
+         {
+            CCommand *command = strategy.command_buffer[cmd_no];
+            if (((command.type & COMMAND_TYPE_MARKET) == 0) && (command.type & OT_EXIT) > 0 && (command.comment != "TP" && command.comment != "SL"))
+            {
+               command.Expire();
+            }
+         }
+      } // end else SAME BAR = YES
+
+      //Print("Tick end Ask:", Ask);
+      //Print("Tick end Bid:", Bid);
+      //Print("HH:", _highest(MODE_HIGH, strategy.HH_ON));
+      //Print("LL:", _lowest(MODE_LOW, strategy.LL_ON));
+
+   } /****  end loop: for every stategy ***/
+}
+
+double CalculatePositionSize(int method, int fixed_amount, double risk, int atr_period, int margin)
+{
+   // init Standard Lot
+   double lot_ret = 1.0;
+
+   string str_symbol = Symbol();
+   string base_currency = StringSubstr(str_symbol,0,3);
+   string second_currency = StringSubstr(str_symbol,3,3);
+
+   double atr = 0;
+   double rate = 0;
+   string rate_symbol = "";
+   string home_currency = AccountCurrency();
+   double standard_lot = 10000.0;
+   double point_value = 0;
+
+   atr = iATR(Symbol(),0,atr_period,0);
+
+   if(method == 2)//Fixed Amount
+   {
+      if (base_currency == home_currency)
+      {
+         rate_symbol = base_currency + home_currency;
+         rate = 1.0;
+      }
+      else
+      {
+         rate_symbol = base_currency + home_currency;
+         rate = MarketInfo(rate_symbol, MODE_ASK);
+
+         if ( GetLastError() == 4106 )
+         {
+            rate_symbol = home_currency + base_currency;
+            rate = 1 / MarketInfo(rate_symbol, MODE_ASK);
+         }
+      }
+
+      // Margin Available * (margin ratio) / ({BASE}/{HOME Currency} Exchange Rate)
+      lot_ret = fixed_amount / rate / standard_lot;
+      
+      if ( lot_ret < 0.1 ) lot_ret = 0.1;
+   }
+   else if(method == 3)//ATR
+   {
+      double balance = AccountBalance();
+      double equity = AccountEquity();
+      double credit = AccountCredit();
+      double freemargin = AccountFreeMargin();
+
+      if (second_currency == home_currency)
+      {
+         rate_symbol = second_currency + home_currency;
+         rate = 1.0;
+      }
+      else
+      {
+         rate_symbol = second_currency + home_currency;
+         rate = MarketInfo(rate_symbol, MODE_ASK);
+
+         if ( GetLastError() == 4106 )
+         {
+            rate_symbol = home_currency + second_currency;
+            rate = 1 / MarketInfo(rate_symbol, MODE_ASK);
+         }
+      }
+
+      // Margin Available * (margin ratio) / ({BASE}/{HOME Currency} Exchange Rate)
+      if ( atr != 0 )
+         lot_ret = (fixed_amount * risk) / (rate * atr) / standard_lot;
+      else
+         lot_ret = 0;
+      
+      if ( lot_ret < 0.1 ) lot_ret = 0.1;
+   }
+   else if (method == 4) //Fixed Other
+   {
+      rate = MarketInfo(str_symbol, MODE_ASK);
+      lot_ret = fixed_amount / rate / standard_lot;
+      
+      if ( lot_ret < 100 ) lot_ret = 100;
+   }
+   else if (method == 5) //ATR Other
+   {
+      if ( atr != 0 )
+         lot_ret = (fixed_amount * risk) / atr / standard_lot;
+      else
+         lot_ret = 0;
+      
+      if ( lot_ret < 100 ) lot_ret = 100;
+   }
+   else if (method == 6) //Fixed Futures
+   {
+      lot_ret = fixed_amount / margin / standard_lot;
+      
+      if ( lot_ret < 1 ) lot_ret = 1;
+   }
+   else if (method == 7) //ATR Futures
+   {
+      point_value = MarketInfo(str_symbol, MODE_TICKVALUE) * 10;
+
+      if ( atr != 0 )
+         lot_ret = (fixed_amount * risk) / (atr * point_value) / standard_lot;
+      else
+         lot_ret = 0;
+      
+      if ( lot_ret < 1 ) lot_ret = 1;
+   }
+   
+   if ( atr == 0 )
+   {
+      lot_ret = 0;
+      Print( "ATR<", atr_period, "> is zero, use min lot <", lot_ret, ">" );
+   }
+
+   lot_ret = MathFloor(lot_ret / MarketInfo( str_symbol, MODE_LOTSTEP )) * MarketInfo( str_symbol, MODE_LOTSTEP );
+   if ( lot_ret < MarketInfo( str_symbol, MODE_MINLOT ) ) {
+      lot_ret = MarketInfo( str_symbol, MODE_MINLOT );
+   }
+
+   /*
+   Print("Checking PositionSizing...");
+   Print("method : ", method, " fixed_amount: ",fixed_amount, " risk: ", risk);
+   if(method==2)
+   {
+      Print(rate_symbol);
+   }
+   else if (method==3)
+   {
+      Print(rate_symbol);
+   }
+
+   Print("Price:", rate);
+   Print("ATR: ", atr);
+   Print("lot: ", lot_ret);
+   Print("End Checking PositionSizing...");*/
+   //Print("   ");
+   //Standard Lot
+   return lot_ret;
+}
